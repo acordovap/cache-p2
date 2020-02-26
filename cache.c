@@ -13,7 +13,7 @@
 /* cache configuration parameters */
 static int cache_split = 0;
 static int cache_usize = DEFAULT_CACHE_SIZE;
-static int cache_isize = DEFAULT_CACHE_SIZE; 
+static int cache_isize = DEFAULT_CACHE_SIZE;
 static int cache_dsize = DEFAULT_CACHE_SIZE;
 static int cache_block_size = DEFAULT_CACHE_BLOCK_SIZE;
 static int words_per_block = DEFAULT_CACHE_BLOCK_SIZE / WORD_SIZE;
@@ -80,6 +80,53 @@ void init_cache()
 {
 
   /* initialize the cache, and cache statistics data structures */
+
+  // cache
+
+  // si son cache separada
+  if(cache_split){
+
+      c1.size = cache_isize;
+      c1.associativity = cache_assoc;
+      c1.n_sets = 1;
+      c1.index_mask = 1;
+      c1.index_mask_offset = 1;
+
+      c2.size = cache_dsize;
+      c2.associativity = cache_assoc;
+      c2.n_sets = 1;
+      c2.index_mask = 1;
+      c2.index_mask_offset = 1;
+  }
+
+  // si es cache unificada
+  else{
+      dcache = &c2;
+
+      dcache->size = cache_usize;
+      dcache->associativity = cache_assoc;
+      dcache->n_sets = 1; //este se va a cambiar
+      dcache->LRU_head = (Pcache_line*)malloc(sizeof(Pcache_line)*dcache->n_sets);
+      c2.index_mask = 1;
+      c2.index_mask_offset = 1;
+
+
+
+
+  }
+
+  // data structures
+  cache_stat_inst.accesses = 1;
+  cache_stat_inst.misses = 1;
+  cache_stat_inst.replacements = 1;
+  cache_stat_inst.demand_fetches = 1;
+  cache_stat_inst.copies_back = 1;
+
+  cache_stat_data.accesses = 1;
+  cache_stat_data.misses = 1;
+  cache_stat_data.replacements = 1;
+  cache_stat_data.demand_fetches = 1;
+  cache_stat_data.copies_back = 1;
 
 }
 /************************************************************/
@@ -156,7 +203,7 @@ void dump_settings()
   }
   printf("  Associativity: \t%d\n", cache_assoc);
   printf("  Block size: \t%d\n", cache_block_size);
-  printf("  Write policy: \t%s\n", 
+  printf("  Write policy: \t%s\n",
 	 cache_writeback ? "WRITE BACK" : "WRITE THROUGH");
   printf("  Allocation policy: \t%s\n",
 	 cache_writealloc ? "WRITE ALLOCATE" : "WRITE NO ALLOCATE");
@@ -172,9 +219,9 @@ void print_stats()
   printf("  accesses:  %d\n", cache_stat_inst.accesses);
   printf("  misses:    %d\n", cache_stat_inst.misses);
   if (!cache_stat_inst.accesses)
-    printf("  miss rate: 0 (0)\n"); 
+    printf("  miss rate: 0 (0)\n");
   else
-    printf("  miss rate: %2.4f (hit rate %2.4f)\n", 
+    printf("  miss rate: %2.4f (hit rate %2.4f)\n",
 	 (float)cache_stat_inst.misses / (float)cache_stat_inst.accesses,
 	 1.0 - (float)cache_stat_inst.misses / (float)cache_stat_inst.accesses);
   printf("  replace:   %d\n", cache_stat_inst.replacements);
@@ -183,15 +230,15 @@ void print_stats()
   printf("  accesses:  %d\n", cache_stat_data.accesses);
   printf("  misses:    %d\n", cache_stat_data.misses);
   if (!cache_stat_data.accesses)
-    printf("  miss rate: 0 (0)\n"); 
+    printf("  miss rate: 0 (0)\n");
   else
-    printf("  miss rate: %2.4f (hit rate %2.4f)\n", 
+    printf("  miss rate: %2.4f (hit rate %2.4f)\n",
 	 (float)cache_stat_data.misses / (float)cache_stat_data.accesses,
 	 1.0 - (float)cache_stat_data.misses / (float)cache_stat_data.accesses);
   printf("  replace:   %d\n", cache_stat_data.replacements);
 
   printf(" TRAFFIC (in words)\n");
-  printf("  demand fetch:  %d\n", cache_stat_inst.demand_fetches + 
+  printf("  demand fetch:  %d\n", cache_stat_inst.demand_fetches +
 	 cache_stat_data.demand_fetches);
   printf("  copies back:   %d\n", cache_stat_inst.copies_back +
 	 cache_stat_data.copies_back);
