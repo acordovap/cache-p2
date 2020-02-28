@@ -50,7 +50,7 @@ void parse_args(argc, argv)
       printf("\t-nw: \t\tset allocation policy to no write allocate\n");
       exit(0);
     }
-    
+
   arg_index = 1;
   while (arg_index != argc - 1) {
 
@@ -170,7 +170,7 @@ int read_trace_element(inFile, access_type, addr)
   result = fscanf(inFile, "%u %x%c", access_type, addr, &c);
   while (c != '\n') {
     result = fscanf(inFile, "%c", &c);
-    if (result == EOF) 
+    if (result == EOF)
       break;
   }
   if (result != EOF)

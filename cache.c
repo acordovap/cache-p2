@@ -29,6 +29,9 @@ static cache c2;
 static cache_stat cache_stat_inst;
 static cache_stat cache_stat_data;
 
+static int no_lines;
+static int no_bits_mask;
+
 /************************************************************/
 void set_cache_param(param, value)
   int param;
@@ -43,6 +46,9 @@ void set_cache_param(param, value)
   case CACHE_PARAM_USIZE:
     cache_split = FALSE;
     cache_usize = value;
+    no_lines = cache_usize / WORD_SIZE; //MA //m
+    no_bits_mask = (WORD_SIZE*8-WORD_SIZE_OFFSET) - LOG2(no_lines); //MA /s-r
+
     break;
   case CACHE_PARAM_ISIZE:
     cache_split = TRUE;
@@ -107,8 +113,9 @@ void init_cache()
       dcache->associativity = cache_assoc;
       dcache->n_sets = 1; //este se va a cambiar
       dcache->LRU_head = (Pcache_line*)malloc(sizeof(Pcache_line)*dcache->n_sets);
-      c2.index_mask = 1;
-      c2.index_mask_offset = 1;
+      //LOG2(no_lines);
+      dcache->index_mask = 0;
+      dcache->index_mask_offset = 1;
 
 
 
