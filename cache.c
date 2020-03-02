@@ -154,16 +154,69 @@ void perform_access(addr, access_type)
   tag = dcache->index_mask & addr;
   ind = tag >> dcache->index_mask_offset;
 
+  printf("tag: %d\n", tag);
+  printf("ind: %d\n", ind);
   switch (access_type) {
     case TRACE_DATA_LOAD:
-
+        //printf("TRACE_DATA_LOAD");
+        cache_stat_data.accesses++;
+        if(dcache->LRU_head[ind] == NULL) // miss
+        {
+            //printf("TRACE_DATA_LOAD misses: %d\n", cache_stat_data.misses);
+            cache_stat_data.misses++;
+            dcache->LRU_head[ind]=malloc(sizeof(cache_line));
+            dcache->LRU_head[ind]->tag = tag;
+            dcache->LRU_head[ind]->dirty = 0;
+            cache_stat_data.demand_fetches += WORD_SIZE;
+        }
+        else if(dcache->LRU_head[ind]->tag != tag) //miss
+        {
+            //printf("TRACE_DATA_LOAD misses: %d\n", cache_stat_data.misses);
+            if (dcache->LRU_head[ind]->dirty) {
+                cache_stat_data.copies_back += WORD_SIZE;
+            }
+            cache_stat_data.misses++;
+            cache_stat_data.replacements++;
+            cache_stat_data.demand_fetches += WORD_SIZE;
+            dcache->LRU_head[ind]->tag = tag;
+            dcache->LRU_head[ind]->dirty = 0;
+        }
         break;
     case TRACE_DATA_STORE:
+        //printf("TRACE_DATA_STORE");
+        cache_stat_data.accesses++;
+        if(dcache->LRU_head[ind] == NULL) // miss
+        {
+            //printf("TRACE_DATA_STORE misses: %d\n", cache_stat_data.misses);
+            cache_stat_data.misses++;
+            dcache->LRU_head[ind] = malloc(sizeof(cache_line));
+            dcache->LRU_head[ind]->tag = tag;
+            dcache->LRU_head[ind]->dirty = 1;
+            cache_stat_data.demand_fetches += WORD_SIZE;
+        }
+        else if(dcache->LRU_head[ind]->tag != tag) //miss
+        {
+            printf("TRACE_DATA_STORE misses: %d\n", cache_stat_data.misses);
+            if (dcache->LRU_head[ind]->dirty) {
+                cache_stat_data.copies_back += WORD_SIZE;
+            }
+            cache_stat_data.misses++;
+            cache_stat_data.replacements++;
+            cache_stat_data.demand_fetches += WORD_SIZE;
+            dcache->LRU_head[ind]->tag = tag;
+            dcache->LRU_head[ind]->dirty = 1;
+        }
+        else
+        {
+            dcache->LRU_head[ind]->dirty = 1;
+        }
         break;
     case TRACE_INST_LOAD:
+        //printf("TRACE_INST_LOAD");
         cache_stat_inst.accesses++;
         if(dcache->LRU_head[ind] == NULL) // miss
         {
+            //printf("TRACE_INST_STORE misses: %d\n", cache_stat_data.misses);
             cache_stat_inst.misses++;
             dcache->LRU_head[ind]=malloc(sizeof(cache_line));
             dcache->LRU_head[ind]->tag = tag;
@@ -172,6 +225,7 @@ void perform_access(addr, access_type)
         }
         else if(dcache->LRU_head[ind]->tag != tag) //miss
         {
+            //printf("TRACE_INST_STORE misses: %d\n", cache_stat_data.misses);
             if (dcache->LRU_head[ind]->dirty) {
                 cache_stat_data.copies_back+=WORD_SIZE;
                 cache_stat_inst.demand_fetches+=WORD_SIZE;
