@@ -149,9 +149,43 @@ void perform_access(addr, access_type)
 
   /* handle an access to the cache */
 
-  for(int i=0; i < dcache->n_sets; i++)
-  {
-      dcache->LRU_head[i]=NULL;
+  unsigned tag, ind;
+
+  tag = dcache->index_mask & addr;
+  ind = tag >> dcache->index_mask_offset;
+
+  switch (access_type) {
+    case TRACE_DATA_LOAD:
+
+        break;
+    case TRACE_DATA_STORE:
+        break;
+    case TRACE_INST_LOAD:
+        cache_stat_inst.accesses++;
+        if(dcache->LRU_head[ind] == NULL) // miss
+        {
+            cache_stat_inst.misses++;
+            dcache->LRU_head[ind]=malloc(sizeof(cache_line));
+            dcache->LRU_head[ind]->tag = tag;
+            dcache->LRU_head[ind]->dirty = 0;
+            cache_stat_inst.demand_fetches+=WORD_SIZE;
+        }
+        else if(dcache->LRU_head[ind]->tag != tag) //miss
+        {
+            if (dcache->LRU_head[ind]->dirty) {
+                cache_stat_data.copies_back+=WORD_SIZE;
+                cache_stat_inst.demand_fetches+=WORD_SIZE;
+            }
+            cache_stat_inst.misses++;
+            cache_stat_inst.replacements++;
+            cache_stat_inst.demand_fetches+=WORD_SIZE;
+            dcache->LRU_head[ind]->tag = tag;
+            dcache->LRU_head[ind]->dirty = 0;
+        }
+        break;
+
+    default:
+        printf("skipping access, unknown type(%d)\n", access_type);
   }
 
 }
@@ -165,7 +199,7 @@ void flush()
   for(int i=0; i < dcache->n_sets; i++)
       if(dcache->LRU_head[i]!=NULL)
         if(dcache->LRU_head[i]->dirty)
-            cache_stat_data.copies_back+=4;
+            cache_stat_data.copies_back+=WORD_SIZE;
 }
 /************************************************************/
 
