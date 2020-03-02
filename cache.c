@@ -2,7 +2,6 @@
  * cache.c
  */
 
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
@@ -48,7 +47,6 @@ void set_cache_param(param, value)
     cache_usize = value;
     no_lines = cache_usize / WORD_SIZE; //MA //m
     no_bits_mask = (WORD_SIZE*8-WORD_SIZE_OFFSET) - LOG2(no_lines); //MA /s-r
-
     break;
   case CACHE_PARAM_ISIZE:
     cache_split = TRUE;
