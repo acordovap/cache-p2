@@ -9,6 +9,8 @@
 #include "cache.h"
 #include "main.h"
 
+#define MASK 0xFFFFFFFF
+
 /* cache configuration parameters */
 static int cache_split = 0;
 static int cache_usize = DEFAULT_CACHE_SIZE;
@@ -28,9 +30,6 @@ static cache c2;
 static cache_stat cache_stat_inst;
 static cache_stat cache_stat_data;
 
-static int no_lines;
-static int no_bits_mask;
-
 /************************************************************/
 void set_cache_param(param, value)
   int param;
@@ -40,13 +39,11 @@ void set_cache_param(param, value)
   switch (param) {
   case CACHE_PARAM_BLOCK_SIZE:
     cache_block_size = value;
-    words_per_block = value / WORD_SIZE;
+    words_per_block = value / WORD_SIZE; /* En bytes */
     break;
   case CACHE_PARAM_USIZE:
     cache_split = FALSE;
     cache_usize = value;
-    no_lines = cache_usize / WORD_SIZE; //MA //m
-    no_bits_mask = (WORD_SIZE*8-WORD_SIZE_OFFSET) - LOG2(no_lines); //MA /s-r
     break;
   case CACHE_PARAM_ISIZE:
     cache_split = TRUE;
@@ -109,29 +106,38 @@ void init_cache()
 
       dcache->size = cache_usize;
       dcache->associativity = cache_assoc;
-      dcache->n_sets = 1; //este se va a cambiar
+      dcache->n_sets = cache_usize / cache_block_size; //MA //m
+
       dcache->LRU_head = (Pcache_line*)malloc(sizeof(Pcache_line)*dcache->n_sets);
-      //LOG2(no_lines);
+      dcache->LRU_tail=NULL;
+      dcache->contents=NULL;
+      dcache->index_mask_offset = (WORD_SIZE*8) - LOG2(dcache->n_sets); //no_lines = cache_usize / cache_block_size; //MA //m
+      dcache->index_mask = MASK << dcache->index_mask_offset;
+
+      for(int i=0; i < dcache->n_sets; i++)
+      {
+          dcache->LRU_head[i]=NULL;
+      }
+      printf("dcache->index_mask_offset: %d\n", dcache->index_mask_offset);
+      printf("dcache->index_mask: %d\n", dcache->index_mask);
+
       dcache->index_mask = 0;
       dcache->index_mask_offset = 1;
-
-
-
 
   }
 
   // data structures
-  cache_stat_inst.accesses = 1;
-  cache_stat_inst.misses = 1;
-  cache_stat_inst.replacements = 1;
-  cache_stat_inst.demand_fetches = 1;
-  cache_stat_inst.copies_back = 1;
+  cache_stat_inst.accesses = 0;
+  cache_stat_inst.misses = 0;
+  cache_stat_inst.replacements = 0;
+  cache_stat_inst.demand_fetches = 0;
+  cache_stat_inst.copies_back = 0;
 
-  cache_stat_data.accesses = 1;
-  cache_stat_data.misses = 1;
-  cache_stat_data.replacements = 1;
-  cache_stat_data.demand_fetches = 1;
-  cache_stat_data.copies_back = 1;
+  cache_stat_data.accesses = 0;
+  cache_stat_data.misses = 0;
+  cache_stat_data.replacements = 0;
+  cache_stat_data.demand_fetches = 0;
+  cache_stat_data.copies_back = 0;
 
 }
 /************************************************************/
@@ -143,6 +149,11 @@ void perform_access(addr, access_type)
 
   /* handle an access to the cache */
 
+  for(int i=0; i < dcache->n_sets; i++)
+  {
+      dcache->LRU_head[i]=NULL;
+  }
+
 }
 /************************************************************/
 
@@ -151,7 +162,10 @@ void flush()
 {
 
   /* flush the cache */
-
+  for(int i=0; i < dcache->n_sets; i++)
+      if(dcache->LRU_head[i]!=NULL)
+        if(dcache->LRU_head[i]->dirty)
+            cache_stat_data.copies_back+=4;
 }
 /************************************************************/
 
