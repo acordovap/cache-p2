@@ -102,8 +102,8 @@ void init_cache()
       dcache->LRU_head[i]=NULL;
   }
 
-  printf("words_per_block: %d\n", words_per_block);
   /*
+  printf("words_per_block: %d\n", words_per_block);
   printf("dcache->n_sets: %d\n", dcache->n_sets);
   printf("dcache->tag_mask_offset: %d\n", dcache->tag_mask_offset);
   printf("dcache->tag_mask %d\n", dcache->tag_mask);
@@ -270,6 +270,20 @@ void insert(head, tail, item)
 }
 /************************************************************/
 
+void custom_print()
+{
+  printf("%d B, %s, %d, %d, %s, %s, %d, %d, %d, %d, %d, %d, \n",
+    cache_usize,
+    cache_split ? "Split" : "Unified",
+    cache_block_size, cache_assoc,
+    cache_writeback ? "WB" : "WT",
+    cache_writealloc ? "WA" : "WNA",
+    cache_stat_inst.misses, cache_stat_inst.replacements,
+    cache_stat_data.misses, cache_stat_data.replacements,
+    cache_stat_inst.demand_fetches + cache_stat_data.demand_fetches,
+    cache_stat_inst.copies_back + cache_stat_data.copies_back);
+}
+
 /************************************************************/
 void dump_settings()
 {
@@ -289,6 +303,7 @@ void dump_settings()
   printf("  Allocation policy: \t%s\n",
 	 cache_writealloc ? "WRITE ALLOCATE" : "WRITE NO ALLOCATE");
 }
+
 /************************************************************/
 
 /************************************************************/

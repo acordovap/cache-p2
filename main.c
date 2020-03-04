@@ -20,7 +20,8 @@ int main(argc, argv)
   parse_args(argc, argv);
   init_cache();
   play_trace(traceFile);
-  print_stats();
+  //print_stats();
+  custom_print();
 }
 
 
@@ -38,6 +39,7 @@ void parse_args(argc, argv)
 
   /* parse the command line arguments */
   for (i = 0; i < argc; i++)
+  {
     if (!strcmp(argv[i], "-h")) {
       printf("\t-h:  \t\tthis message\n\n");
       printf("\t-bs <bs>: \tset cache block size to <bs>\n");
@@ -51,7 +53,7 @@ void parse_args(argc, argv)
       printf("\t-nw: \t\tset allocation policy to no write allocate\n");
       exit(0);
     }
-
+  }
   arg_index = 1;
   while (arg_index != argc - 1) {
 
@@ -121,7 +123,7 @@ void parse_args(argc, argv)
 
   }
 
-  dump_settings();
+  //dump_settings();
 
   /* open the trace file */
   traceFile = fopen(argv[arg_index], "r");
