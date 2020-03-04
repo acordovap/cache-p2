@@ -76,14 +76,33 @@ void set_cache_param(param, value)
 }
 /************************************************************/
 
+// type: -1 unified, 0 i cache, 1 d cache
+void init_pcache(pcache, type)
+  Pcache pcache;
+  int type;
+{
+    int pcachesize = (type==-1) ? cache_usize : ( (type==0) ? cache_isize : cache_dsize );
+
+    pcache->size = pcachesize;
+    pcache->associativity = cache_assoc;
+    pcache->n_sets = pcache->size / cache_block_size;
+    pcache->LRU_head = (Pcache_line*)malloc(sizeof(Pcache_line)*pcache->n_sets);
+    pcache->LRU_tail=NULL;
+    //pcache->contents=NULL;
+    pcache->tag_mask_offset = LOG2(pcache->size);
+    pcache->tag_mask = MASK << pcache->tag_mask_offset;
+    pcache->index_mask_offset = pcache->tag_mask_offset - LOG2(pcache->n_sets);
+    pcache->index_mask = (MASK >> ( (DIR_SIZE - pcache->tag_mask_offset) + pcache->index_mask_offset ) ) << pcache->index_mask_offset;
+    for(int i=0; i < pcache->n_sets; i++)
+      pcache->LRU_head[i]=NULL;
+}
+
 /************************************************************/
 void init_cache()
 {
 
   /* initialize the cache, and cache statistics data structures */
 
-  // cache
-  dcache = &c2;
   // data structures
   cache_stat_inst.accesses = 0;
   cache_stat_inst.misses = 0;
@@ -97,62 +116,16 @@ void init_cache()
   cache_stat_data.demand_fetches = 0;
   cache_stat_data.copies_back = 0;
 
+  // cache
+  icache = &c1;
+  dcache = &c2;
+
   if(cache_split){
-      // si es cache separada
-      icache = &c1;
-      icache->size = cache_isize;
-      icache->associativity = cache_assoc;
-      icache->n_sets = cache_isize / cache_block_size;
-      icache->LRU_head = (Pcache_line*)malloc(sizeof(Pcache_line)*icache->n_sets);
-      icache->LRU_tail=NULL;
-      //icache->contents=NULL;
-      icache->tag_mask_offset = LOG2(cache_isize);
-      icache->tag_mask = MASK << icache->tag_mask_offset;
-      icache->index_mask_offset = icache->tag_mask_offset - LOG2(icache->n_sets);
-      icache->index_mask = (MASK >> ( (DIR_SIZE - icache->tag_mask_offset) + icache->index_mask_offset ) ) << icache->index_mask_offset;
-      for(int i=0; i < icache->n_sets; i++)
-        icache->LRU_head[i]=NULL;
-
-      //dcache
-      dcache->size = cache_dsize;
-      dcache->associativity = cache_assoc;
-      dcache->n_sets = cache_dsize / cache_block_size;
-      dcache->LRU_head = (Pcache_line*)malloc(sizeof(Pcache_line)*dcache->n_sets);
-      dcache->LRU_tail=NULL;
-      //dcache->contents=NULL;
-      dcache->tag_mask_offset = LOG2(cache_dsize);
-      dcache->tag_mask = MASK << dcache->tag_mask_offset;
-      dcache->index_mask_offset = dcache->tag_mask_offset - LOG2(dcache->n_sets);
-      dcache->index_mask = (MASK >> ( (DIR_SIZE - dcache->tag_mask_offset) + dcache->index_mask_offset ) ) << dcache->index_mask_offset;
-
-      for(int i=0; i < dcache->n_sets; i++)
-        dcache->LRU_head[i]=NULL;
-
-      /*
-      printf("words_per_block: %d\n", words_per_block);
-      printf("dcache->n_sets: %d\n", dcache->n_sets);
-      printf("dcache->tag_mask_offset: %d\n", dcache->tag_mask_offset);
-      printf("dcache->tag_mask %d\n", dcache->tag_mask);
-      printf("dcache->index_mask_offset: %d\n", dcache->index_mask_offset);
-      printf("dcache->index_mask: %d\n", dcache->index_mask);
-      */
-
+      init_pcache(icache, 0);
+      init_pcache(dcache, 1);
   }
   else{
-      dcache->size = cache_usize;
-      dcache->associativity = cache_assoc;
-      dcache->n_sets = cache_usize / cache_block_size;
-      dcache->LRU_head = (Pcache_line*)malloc(sizeof(Pcache_line)*dcache->n_sets);
-      dcache->LRU_tail=NULL;
-      //dcache->contents=NULL;
-      dcache->tag_mask_offset = LOG2(cache_usize);
-      dcache->tag_mask = MASK << dcache->tag_mask_offset;
-      dcache->index_mask_offset = dcache->tag_mask_offset - LOG2(dcache->n_sets);
-      dcache->index_mask = (MASK >> ( (DIR_SIZE - dcache->tag_mask_offset) + dcache->index_mask_offset ) ) << dcache->index_mask_offset;
-
-      for(int i=0; i < dcache->n_sets; i++)
-        dcache->LRU_head[i]=NULL;
-
+      init_pcache(dcache, -1);
   }
 }
 /************************************************************/
@@ -324,8 +297,8 @@ void insert(head, tail, item)
 
 void custom_print()
 {
-  printf("%d B, %s, %d, %d, %s, %s, %d, %d, %d, %d, %d, %d, \n",
-    cache_usize,
+  printf("%d B, %s, %d, %d, %s, %s, %d, %d, %d, %d, %d, %d\n",
+    cache_split ? cache_isize : cache_usize,
     cache_split ? "Split" : "Unified",
     cache_block_size, cache_assoc,
     cache_writeback ? "WB" : "WT",

@@ -69,6 +69,7 @@ void insert();
 void dump_settings();
 void print_stats();
 void custom_print();
+void init_pcache();
 
 
 /* macros */
