@@ -83,34 +83,7 @@ void init_cache()
   /* initialize the cache, and cache statistics data structures */
 
   // cache
-
-  // si es cache unificada
   dcache = &c2;
-  dcache->size = cache_usize;
-  dcache->associativity = cache_assoc;
-  dcache->n_sets = cache_usize / cache_block_size;
-  dcache->LRU_head = (Pcache_line*)malloc(sizeof(Pcache_line)*dcache->n_sets);
-  dcache->LRU_tail=NULL;
-  //dcache->contents=NULL;
-  dcache->tag_mask_offset = LOG2(cache_usize);
-  dcache->tag_mask = MASK << dcache->tag_mask_offset;
-  dcache->index_mask_offset = dcache->tag_mask_offset - LOG2(dcache->n_sets);
-  dcache->index_mask = (MASK >> ( (DIR_SIZE - dcache->tag_mask_offset) + dcache->index_mask_offset ) ) << dcache->index_mask_offset;
-
-  for(int i=0; i < dcache->n_sets; i++)
-  {
-      dcache->LRU_head[i]=NULL;
-  }
-
-  /*
-  printf("words_per_block: %d\n", words_per_block);
-  printf("dcache->n_sets: %d\n", dcache->n_sets);
-  printf("dcache->tag_mask_offset: %d\n", dcache->tag_mask_offset);
-  printf("dcache->tag_mask %d\n", dcache->tag_mask);
-  printf("dcache->index_mask_offset: %d\n", dcache->index_mask_offset);
-  printf("dcache->index_mask: %d\n", dcache->index_mask);
-  */
-
   // data structures
   cache_stat_inst.accesses = 0;
   cache_stat_inst.misses = 0;
@@ -124,6 +97,63 @@ void init_cache()
   cache_stat_data.demand_fetches = 0;
   cache_stat_data.copies_back = 0;
 
+  if(cache_split){
+      // si es cache separada
+      icache = &c1;
+      icache->size = cache_isize;
+      icache->associativity = cache_assoc;
+      icache->n_sets = cache_isize / cache_block_size;
+      icache->LRU_head = (Pcache_line*)malloc(sizeof(Pcache_line)*icache->n_sets);
+      icache->LRU_tail=NULL;
+      //icache->contents=NULL;
+      icache->tag_mask_offset = LOG2(cache_isize);
+      icache->tag_mask = MASK << icache->tag_mask_offset;
+      icache->index_mask_offset = icache->tag_mask_offset - LOG2(icache->n_sets);
+      icache->index_mask = (MASK >> ( (DIR_SIZE - icache->tag_mask_offset) + icache->index_mask_offset ) ) << icache->index_mask_offset;
+      for(int i=0; i < icache->n_sets; i++)
+        icache->LRU_head[i]=NULL;
+
+      //dcache
+      dcache->size = cache_dsize;
+      dcache->associativity = cache_assoc;
+      dcache->n_sets = cache_dsize / cache_block_size;
+      dcache->LRU_head = (Pcache_line*)malloc(sizeof(Pcache_line)*dcache->n_sets);
+      dcache->LRU_tail=NULL;
+      //dcache->contents=NULL;
+      dcache->tag_mask_offset = LOG2(cache_dsize);
+      dcache->tag_mask = MASK << dcache->tag_mask_offset;
+      dcache->index_mask_offset = dcache->tag_mask_offset - LOG2(dcache->n_sets);
+      dcache->index_mask = (MASK >> ( (DIR_SIZE - dcache->tag_mask_offset) + dcache->index_mask_offset ) ) << dcache->index_mask_offset;
+
+      for(int i=0; i < dcache->n_sets; i++)
+        dcache->LRU_head[i]=NULL;
+
+      /*
+      printf("words_per_block: %d\n", words_per_block);
+      printf("dcache->n_sets: %d\n", dcache->n_sets);
+      printf("dcache->tag_mask_offset: %d\n", dcache->tag_mask_offset);
+      printf("dcache->tag_mask %d\n", dcache->tag_mask);
+      printf("dcache->index_mask_offset: %d\n", dcache->index_mask_offset);
+      printf("dcache->index_mask: %d\n", dcache->index_mask);
+      */
+
+  }
+  else{
+      dcache->size = cache_usize;
+      dcache->associativity = cache_assoc;
+      dcache->n_sets = cache_usize / cache_block_size;
+      dcache->LRU_head = (Pcache_line*)malloc(sizeof(Pcache_line)*dcache->n_sets);
+      dcache->LRU_tail=NULL;
+      //dcache->contents=NULL;
+      dcache->tag_mask_offset = LOG2(cache_usize);
+      dcache->tag_mask = MASK << dcache->tag_mask_offset;
+      dcache->index_mask_offset = dcache->tag_mask_offset - LOG2(dcache->n_sets);
+      dcache->index_mask = (MASK >> ( (DIR_SIZE - dcache->tag_mask_offset) + dcache->index_mask_offset ) ) << dcache->index_mask_offset;
+
+      for(int i=0; i < dcache->n_sets; i++)
+        dcache->LRU_head[i]=NULL;
+
+  }
 }
 /************************************************************/
 
@@ -190,29 +220,51 @@ void perform_access(addr, access_type)
         break;
     case TRACE_INST_LOAD:
         cache_stat_inst.accesses++;
-        if(dcache->LRU_head[ind] == NULL) // miss
-        {
-            cache_stat_inst.misses++;
-            dcache->LRU_head[ind]=malloc(sizeof(cache_line));
-            dcache->LRU_head[ind]->tag = tag;
-            dcache->LRU_head[ind]->dirty = 0;
-            cache_stat_inst.demand_fetches+=words_per_block;
-        }
-        else if(dcache->LRU_head[ind]->tag != tag) //miss
-        {
-            if (dcache->LRU_head[ind]->dirty) {
-                cache_stat_data.copies_back+=words_per_block;
+        if(!cache_split){
+            if(dcache->LRU_head[ind] == NULL) // miss
+            {
+                cache_stat_inst.misses++;
+                dcache->LRU_head[ind]=malloc(sizeof(cache_line));
+                dcache->LRU_head[ind]->tag = tag;
+                dcache->LRU_head[ind]->dirty = 0;
+                cache_stat_inst.demand_fetches+=words_per_block;
             }
-            cache_stat_inst.misses++;
-            cache_stat_inst.replacements++;
-            cache_stat_inst.demand_fetches+=words_per_block;
-            dcache->LRU_head[ind]->tag = tag;
-            dcache->LRU_head[ind]->dirty = 0;
+            else if(dcache->LRU_head[ind]->tag != tag) //miss
+            {
+                if (dcache->LRU_head[ind]->dirty) {
+                    cache_stat_data.copies_back+=words_per_block;
+                }
+                cache_stat_inst.misses++;
+                cache_stat_inst.replacements++;
+                cache_stat_inst.demand_fetches+=words_per_block;
+                dcache->LRU_head[ind]->tag = tag;
+                dcache->LRU_head[ind]->dirty = 0;
+            }
         }
-        break;
-    default:
-        printf("skipping access, unknown type(%d)\n", access_type);
-
+        else{
+            if(icache->LRU_head[ind] == NULL) // miss
+            {
+                cache_stat_inst.misses++;
+                icache->LRU_head[ind]=malloc(sizeof(cache_line));
+                icache->LRU_head[ind]->tag = tag;
+                icache->LRU_head[ind]->dirty = 0;
+                cache_stat_inst.demand_fetches+=words_per_block;
+            }
+            else if(icache->LRU_head[ind]->tag != tag) //miss
+            {
+                if (icache->LRU_head[ind]->dirty) {
+                    cache_stat_data.copies_back+=words_per_block;
+                }
+                cache_stat_inst.misses++;
+                cache_stat_inst.replacements++;
+                cache_stat_inst.demand_fetches+=words_per_block;
+                icache->LRU_head[ind]->tag = tag;
+                icache->LRU_head[ind]->dirty = 0;
+            }
+        }
+            break;
+        default:
+            printf("skipping access, unknown type(%d)\n", access_type);
 
   }
 
