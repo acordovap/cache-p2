@@ -6,6 +6,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include "cache.h"
 #include "main.h"
 
@@ -151,8 +152,8 @@ void play_trace(inFile)
     }
 
     num_inst++;
-    if (!(num_inst % PRINT_INTERVAL))
-      printf("processed %d references\n", num_inst);
+    //if (!(num_inst % PRINT_INTERVAL))
+      //printf("processed %d references\n", num_inst);
   }
 
   flush();

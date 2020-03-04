@@ -84,47 +84,31 @@ void init_cache()
 
   // cache
 
-  // si son cache separada
-  if(cache_split){
-
-      c1.size = cache_isize;
-      c1.associativity = cache_assoc;
-      c1.n_sets = 1;
-      c1.index_mask = 1;
-      c1.index_mask_offset = 1;
-
-      c2.size = cache_dsize;
-      c2.associativity = cache_assoc;
-      c2.n_sets = 1;
-      c2.index_mask = 1;
-      c2.index_mask_offset = 1;
-  }
-
   // si es cache unificada
-  else{
-      dcache = &c2;
+  dcache = &c2;
 
-      dcache->size = cache_usize;
-      dcache->associativity = cache_assoc;
-      dcache->n_sets = cache_usize / cache_block_size; //MA //m
+  dcache->size = cache_usize;
+  dcache->associativity = cache_assoc;
+  dcache->n_sets = cache_usize / cache_block_size * WORD_SIZE;
+  dcache->LRU_head = (Pcache_line*)malloc(sizeof(Pcache_line)*dcache->n_sets);
+  dcache->LRU_tail=NULL;
+  //dcache->contents=NULL;
+  dcache->tag_mask_offset = LOG2(cache_usize);
+  dcache->tag_mask = MASK << dcache->tag_mask_offset;
+  dcache->index_mask_offset = 4;
+  //dcache->index_mask_offset = LOG2(words_per_block);
+  dcache->index_mask = (MASK >> ( (DIR_SIZE - dcache->tag_mask_offset) + dcache->index_mask_offset ) ) << dcache->index_mask_offset;
 
-      dcache->LRU_head = (Pcache_line*)malloc(sizeof(Pcache_line)*dcache->n_sets);
-      dcache->LRU_tail=NULL;
-      dcache->contents=NULL;
-      dcache->index_mask_offset = (WORD_SIZE*8) - LOG2(dcache->n_sets); //no_lines = cache_usize / cache_block_size; //MA //m
-      dcache->index_mask = MASK << dcache->index_mask_offset;
-
-      for(int i=0; i < dcache->n_sets; i++)
-      {
-          dcache->LRU_head[i]=NULL;
-      }
-      printf("dcache->index_mask_offset: %d\n", dcache->index_mask_offset);
-      printf("dcache->index_mask: %d\n", dcache->index_mask);
-
-      dcache->index_mask = 0;
-      dcache->index_mask_offset = 1;
-
+  for(int i=0; i < dcache->n_sets; i++)
+  {
+      dcache->LRU_head[i]=NULL;
   }
+
+  printf("dcache->n_sets: %d\n", dcache->n_sets);
+  printf("dcache->tag_mask_offset: %d\n", dcache->tag_mask_offset);
+  printf("dcache->tag_mask %d\n", dcache->tag_mask);
+  printf("dcache->index_mask_offset: %d\n", dcache->index_mask_offset);
+  printf("dcache->index_mask: %d\n", dcache->index_mask);
 
   // data structures
   cache_stat_inst.accesses = 0;
@@ -150,19 +134,15 @@ void perform_access(addr, access_type)
   /* handle an access to the cache */
 
   unsigned tag, ind;
+  tag = dcache->tag_mask & addr;
+  ind = (addr & dcache->index_mask) >> dcache->index_mask_offset;
 
-  tag = dcache->index_mask & addr;
-  ind = tag >> dcache->index_mask_offset;
-
-  printf("tag: %d\n", tag);
-  printf("ind: %d\n", ind);
   switch (access_type) {
+
     case TRACE_DATA_LOAD:
-        //printf("TRACE_DATA_LOAD");
         cache_stat_data.accesses++;
         if(dcache->LRU_head[ind] == NULL) // miss
         {
-            //printf("TRACE_DATA_LOAD misses: %d\n", cache_stat_data.misses);
             cache_stat_data.misses++;
             dcache->LRU_head[ind]=malloc(sizeof(cache_line));
             dcache->LRU_head[ind]->tag = tag;
@@ -171,7 +151,6 @@ void perform_access(addr, access_type)
         }
         else if(dcache->LRU_head[ind]->tag != tag) //miss
         {
-            //printf("TRACE_DATA_LOAD misses: %d\n", cache_stat_data.misses);
             if (dcache->LRU_head[ind]->dirty) {
                 cache_stat_data.copies_back += WORD_SIZE;
             }
@@ -183,11 +162,9 @@ void perform_access(addr, access_type)
         }
         break;
     case TRACE_DATA_STORE:
-        //printf("TRACE_DATA_STORE");
         cache_stat_data.accesses++;
         if(dcache->LRU_head[ind] == NULL) // miss
         {
-            //printf("TRACE_DATA_STORE misses: %d\n", cache_stat_data.misses);
             cache_stat_data.misses++;
             dcache->LRU_head[ind] = malloc(sizeof(cache_line));
             dcache->LRU_head[ind]->tag = tag;
@@ -196,7 +173,6 @@ void perform_access(addr, access_type)
         }
         else if(dcache->LRU_head[ind]->tag != tag) //miss
         {
-            printf("TRACE_DATA_STORE misses: %d\n", cache_stat_data.misses);
             if (dcache->LRU_head[ind]->dirty) {
                 cache_stat_data.copies_back += WORD_SIZE;
             }
@@ -212,11 +188,9 @@ void perform_access(addr, access_type)
         }
         break;
     case TRACE_INST_LOAD:
-        //printf("TRACE_INST_LOAD");
         cache_stat_inst.accesses++;
         if(dcache->LRU_head[ind] == NULL) // miss
         {
-            //printf("TRACE_INST_STORE misses: %d\n", cache_stat_data.misses);
             cache_stat_inst.misses++;
             dcache->LRU_head[ind]=malloc(sizeof(cache_line));
             dcache->LRU_head[ind]->tag = tag;
@@ -225,7 +199,6 @@ void perform_access(addr, access_type)
         }
         else if(dcache->LRU_head[ind]->tag != tag) //miss
         {
-            //printf("TRACE_INST_STORE misses: %d\n", cache_stat_data.misses);
             if (dcache->LRU_head[ind]->dirty) {
                 cache_stat_data.copies_back+=WORD_SIZE;
                 cache_stat_inst.demand_fetches+=WORD_SIZE;
@@ -237,9 +210,10 @@ void perform_access(addr, access_type)
             dcache->LRU_head[ind]->dirty = 0;
         }
         break;
-
     default:
         printf("skipping access, unknown type(%d)\n", access_type);
+
+
   }
 
 }
