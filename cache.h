@@ -5,7 +5,6 @@
 #define TRUE 1
 #define FALSE 0
 #define DIR_SIZE 32
-#define BYTE 8
 
 /* default cache parameters--can be changed */
 #define WORD_SIZE 4 /* En bytes */ // 4B = 32 bits

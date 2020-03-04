@@ -86,17 +86,15 @@ void init_cache()
 
   // si es cache unificada
   dcache = &c2;
-
   dcache->size = cache_usize;
   dcache->associativity = cache_assoc;
-  dcache->n_sets = cache_usize / cache_block_size * WORD_SIZE;
+  dcache->n_sets = cache_usize / cache_block_size;
   dcache->LRU_head = (Pcache_line*)malloc(sizeof(Pcache_line)*dcache->n_sets);
   dcache->LRU_tail=NULL;
   //dcache->contents=NULL;
   dcache->tag_mask_offset = LOG2(cache_usize);
   dcache->tag_mask = MASK << dcache->tag_mask_offset;
-  dcache->index_mask_offset = 4;
-  //dcache->index_mask_offset = LOG2(words_per_block);
+  dcache->index_mask_offset = dcache->tag_mask_offset - LOG2(dcache->n_sets);
   dcache->index_mask = (MASK >> ( (DIR_SIZE - dcache->tag_mask_offset) + dcache->index_mask_offset ) ) << dcache->index_mask_offset;
 
   for(int i=0; i < dcache->n_sets; i++)
@@ -104,11 +102,13 @@ void init_cache()
       dcache->LRU_head[i]=NULL;
   }
 
+  /*
   printf("dcache->n_sets: %d\n", dcache->n_sets);
   printf("dcache->tag_mask_offset: %d\n", dcache->tag_mask_offset);
   printf("dcache->tag_mask %d\n", dcache->tag_mask);
   printf("dcache->index_mask_offset: %d\n", dcache->index_mask_offset);
   printf("dcache->index_mask: %d\n", dcache->index_mask);
+  */
 
   // data structures
   cache_stat_inst.accesses = 0;
@@ -201,7 +201,6 @@ void perform_access(addr, access_type)
         {
             if (dcache->LRU_head[ind]->dirty) {
                 cache_stat_data.copies_back+=WORD_SIZE;
-                cache_stat_inst.demand_fetches+=WORD_SIZE;
             }
             cache_stat_inst.misses++;
             cache_stat_inst.replacements++;
