@@ -102,6 +102,7 @@ void init_cache()
       dcache->LRU_head[i]=NULL;
   }
 
+  printf("words_per_block: %d\n", words_per_block);
   /*
   printf("dcache->n_sets: %d\n", dcache->n_sets);
   printf("dcache->tag_mask_offset: %d\n", dcache->tag_mask_offset);
@@ -147,16 +148,16 @@ void perform_access(addr, access_type)
             dcache->LRU_head[ind]=malloc(sizeof(cache_line));
             dcache->LRU_head[ind]->tag = tag;
             dcache->LRU_head[ind]->dirty = 0;
-            cache_stat_data.demand_fetches += WORD_SIZE;
+            cache_stat_data.demand_fetches += words_per_block;
         }
         else if(dcache->LRU_head[ind]->tag != tag) //miss
         {
             if (dcache->LRU_head[ind]->dirty) {
-                cache_stat_data.copies_back += WORD_SIZE;
+                cache_stat_data.copies_back += words_per_block;
             }
             cache_stat_data.misses++;
             cache_stat_data.replacements++;
-            cache_stat_data.demand_fetches += WORD_SIZE;
+            cache_stat_data.demand_fetches += words_per_block;
             dcache->LRU_head[ind]->tag = tag;
             dcache->LRU_head[ind]->dirty = 0;
         }
@@ -169,16 +170,16 @@ void perform_access(addr, access_type)
             dcache->LRU_head[ind] = malloc(sizeof(cache_line));
             dcache->LRU_head[ind]->tag = tag;
             dcache->LRU_head[ind]->dirty = 1;
-            cache_stat_data.demand_fetches += WORD_SIZE;
+            cache_stat_data.demand_fetches += words_per_block;
         }
         else if(dcache->LRU_head[ind]->tag != tag) //miss
         {
             if (dcache->LRU_head[ind]->dirty) {
-                cache_stat_data.copies_back += WORD_SIZE;
+                cache_stat_data.copies_back += words_per_block;
             }
             cache_stat_data.misses++;
             cache_stat_data.replacements++;
-            cache_stat_data.demand_fetches += WORD_SIZE;
+            cache_stat_data.demand_fetches += words_per_block;
             dcache->LRU_head[ind]->tag = tag;
             dcache->LRU_head[ind]->dirty = 1;
         }
@@ -195,16 +196,16 @@ void perform_access(addr, access_type)
             dcache->LRU_head[ind]=malloc(sizeof(cache_line));
             dcache->LRU_head[ind]->tag = tag;
             dcache->LRU_head[ind]->dirty = 0;
-            cache_stat_inst.demand_fetches+=WORD_SIZE;
+            cache_stat_inst.demand_fetches+=words_per_block;
         }
         else if(dcache->LRU_head[ind]->tag != tag) //miss
         {
             if (dcache->LRU_head[ind]->dirty) {
-                cache_stat_data.copies_back+=WORD_SIZE;
+                cache_stat_data.copies_back+=words_per_block;
             }
             cache_stat_inst.misses++;
             cache_stat_inst.replacements++;
-            cache_stat_inst.demand_fetches+=WORD_SIZE;
+            cache_stat_inst.demand_fetches+=words_per_block;
             dcache->LRU_head[ind]->tag = tag;
             dcache->LRU_head[ind]->dirty = 0;
         }
@@ -226,7 +227,7 @@ void flush()
   for(int i=0; i < dcache->n_sets; i++)
       if(dcache->LRU_head[i]!=NULL)
         if(dcache->LRU_head[i]->dirty)
-            cache_stat_data.copies_back+=WORD_SIZE;
+            cache_stat_data.copies_back+=words_per_block;
 }
 /************************************************************/
 
