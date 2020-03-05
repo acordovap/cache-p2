@@ -85,7 +85,7 @@ void init_pcache(pcache, type)
 
     pcache->size = pcachesize;
     pcache->associativity = cache_assoc;
-    pcache->n_sets = pcache->size / cache_block_size;
+    pcache->n_sets = pcache->size / cache_block_size / pcache->associativity;
     pcache->LRU_head = (Pcache_line*)malloc(sizeof(Pcache_line)*pcache->n_sets);
     pcache->LRU_tail=NULL;
     //pcache->contents=NULL;
@@ -142,7 +142,46 @@ void perform_access(addr, access_type)
   ind = (addr & dcache->index_mask) >> dcache->index_mask_offset;
 
   switch (access_type) {
+      case TRACE_DATA_LOAD:
+          if (cache_writealloc && cache_writeback)
+              ;
+          else if (cache_writealloc && !cache_writeback)
+              ;
+          else if (!cache_writealloc && cache_writeback)
+              ;
+          else if (!cache_writealloc && !cache_writeback)
+              ;
+          else
+              printf("TRACE_DATA_LOAD - ups\n");
+      break;
+      case TRACE_DATA_STORE:
+          if (cache_writealloc && cache_writeback)
+              ;
+          else if (cache_writealloc && !cache_writeback)
+              ;
+          else if (!cache_writealloc && cache_writeback)
+              ;
+          else if (!cache_writealloc && !cache_writeback)
+              ;
+          else
+              printf("TRACE_DATA_STORE - ups\n");
+      break;
+      case TRACE_INST_LOAD:
+          if (cache_writealloc && cache_writeback)
+              ;
+          else if (cache_writealloc && !cache_writeback)
+              ;
+          else if (!cache_writealloc && cache_writeback)
+              ;
+          else if (!cache_writealloc && !cache_writeback)
+              ;
+          else
+              printf("TRACE_INST_LOAD - ups\n");
+      break;
+      default:
+        printf("skipping access, unknown type(%d)\n", access_type);
 
+/*
     case TRACE_DATA_LOAD:
         cache_stat_data.accesses++;
         if(dcache->LRU_head[ind] == NULL) // miss
@@ -238,7 +277,7 @@ void perform_access(addr, access_type)
             break;
         default:
             printf("skipping access, unknown type(%d)\n", access_type);
-
+*/
   }
 
 }
