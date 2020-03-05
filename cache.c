@@ -76,12 +76,11 @@ void set_cache_param(param, value)
 }
 /************************************************************/
 
-// type: -1 unified, 0 i cache, 1 d cache
 void init_pcache(pcache, type)
   Pcache pcache;
   int type;
 {
-    int pcachesize = (type==-1) ? cache_usize : ( (type==0) ? cache_isize : cache_dsize );
+    int pcachesize = (type==UCACHE) ? cache_usize : ( (type==ICACHE) ? cache_isize : cache_dsize );
 
     pcache->size = pcachesize;
     pcache->associativity = cache_assoc;
@@ -121,14 +120,246 @@ void init_cache()
   dcache = &c2;
 
   if(cache_split){
-      init_pcache(icache, 0);
-      init_pcache(dcache, 1);
+      init_pcache(icache, ICACHE);
+      init_pcache(dcache, DCACHE);
   }
   else{
-      init_pcache(dcache, -1);
+      init_pcache(dcache, UCACHE);
   }
 }
 /************************************************************/
+
+void pa_wa_wb(access_type, tag, ind)
+  unsigned access_type, tag, ind;
+{
+    if(cache_assoc == 1)
+    {
+        switch (access_type) {
+            case TRACE_DATA_LOAD:
+                cache_stat_data.accesses++;
+                if(dcache->LRU_head[ind] == NULL) // miss
+                {
+                    cache_stat_data.misses++;
+                    dcache->LRU_head[ind]=malloc(sizeof(cache_line));
+                    dcache->LRU_head[ind]->tag = tag;
+                    dcache->LRU_head[ind]->dirty = 0;
+                    cache_stat_data.demand_fetches += words_per_block;
+                }
+                else if(dcache->LRU_head[ind]->tag != tag) //miss
+                {
+                    if (dcache->LRU_head[ind]->dirty) {
+                        cache_stat_data.copies_back += words_per_block;
+                    }
+                    cache_stat_data.misses++;
+                    cache_stat_data.replacements++;
+                    cache_stat_data.demand_fetches += words_per_block;
+                    dcache->LRU_head[ind]->tag = tag;
+                    dcache->LRU_head[ind]->dirty = 0;
+                }
+            break;
+            case TRACE_DATA_STORE:
+                cache_stat_data.accesses++;
+                if(dcache->LRU_head[ind] == NULL) // miss
+                {
+                    cache_stat_data.misses++;
+                    dcache->LRU_head[ind] = malloc(sizeof(cache_line));
+                    dcache->LRU_head[ind]->tag = tag;
+                    dcache->LRU_head[ind]->dirty = 1;
+                    cache_stat_data.demand_fetches += words_per_block;
+                }
+                else if(dcache->LRU_head[ind]->tag != tag) //miss
+                {
+                    if (dcache->LRU_head[ind]->dirty) {
+                        cache_stat_data.copies_back += words_per_block;
+                    }
+                    cache_stat_data.misses++;
+                    cache_stat_data.replacements++;
+                    cache_stat_data.demand_fetches += words_per_block;
+                    dcache->LRU_head[ind]->tag = tag;
+                    dcache->LRU_head[ind]->dirty = 1;
+                }
+                else
+                {
+                    dcache->LRU_head[ind]->dirty = 1;
+                }
+            break;
+            case TRACE_INST_LOAD:
+                cache_stat_inst.accesses++;
+                if(!cache_split){
+                    if(dcache->LRU_head[ind] == NULL) // miss
+                    {
+                        cache_stat_inst.misses++;
+                        dcache->LRU_head[ind]=malloc(sizeof(cache_line));
+                        dcache->LRU_head[ind]->tag = tag;
+                        dcache->LRU_head[ind]->dirty = 0;
+                        cache_stat_inst.demand_fetches+=words_per_block;
+                    }
+                    else if(dcache->LRU_head[ind]->tag != tag) //miss
+                    {
+                        if (dcache->LRU_head[ind]->dirty) {
+                            cache_stat_data.copies_back+=words_per_block;
+                        }
+                        cache_stat_inst.misses++;
+                        cache_stat_inst.replacements++;
+                        cache_stat_inst.demand_fetches+=words_per_block;
+                        dcache->LRU_head[ind]->tag = tag;
+                        dcache->LRU_head[ind]->dirty = 0;
+                    }
+                }
+                else{
+                    if(icache->LRU_head[ind] == NULL) // miss
+                    {
+                        cache_stat_inst.misses++;
+                        icache->LRU_head[ind]=malloc(sizeof(cache_line));
+                        icache->LRU_head[ind]->tag = tag;
+                        icache->LRU_head[ind]->dirty = 0;
+                        cache_stat_inst.demand_fetches+=words_per_block;
+                    }
+                    else if(icache->LRU_head[ind]->tag != tag) //miss
+                    {
+                        if (icache->LRU_head[ind]->dirty) {
+                            cache_stat_data.copies_back+=words_per_block;
+                        }
+                        cache_stat_inst.misses++;
+                        cache_stat_inst.replacements++;
+                        cache_stat_inst.demand_fetches+=words_per_block;
+                        icache->LRU_head[ind]->tag = tag;
+                        icache->LRU_head[ind]->dirty = 0;
+                    }
+                }
+            break;
+            default:
+                printf("skipping access, unknown type(%d)\n", access_type);
+        }
+    }
+    else if(cache_assoc > 1)
+    {
+        switch (access_type) {
+            case TRACE_DATA_LOAD:
+                // TO DO
+            break;
+            case TRACE_DATA_STORE:
+                //TO DO
+            break;
+            case TRACE_INST_LOAD:
+                //TO DO
+            break;
+            default:
+                printf("skipping access, unknown type(%d)\n", access_type);
+        }
+    }
+}
+
+void pa_wa_wt(access_type, tag, ind)
+  unsigned access_type, tag, ind;
+{
+    if(cache_assoc == 1)
+    {
+        switch (access_type) {
+            case TRACE_DATA_LOAD:
+                // TO DO
+            break;
+            case TRACE_DATA_STORE:
+                //TO DO
+            break;
+            case TRACE_INST_LOAD:
+                //TO DO
+            break;
+            default:
+                printf("skipping access, unknown type(%d)\n", access_type);
+        }
+    }
+    else if(cache_assoc > 1)
+    {
+        switch (access_type) {
+            case TRACE_DATA_LOAD:
+                // TO DO
+            break;
+            case TRACE_DATA_STORE:
+                //TO DO
+            break;
+            case TRACE_INST_LOAD:
+                //TO DO
+            break;
+            default:
+                printf("skipping access, unknown type(%d)\n", access_type);
+        }
+    }
+}
+
+void pa_wna_wb(access_type, tag, ind)
+  unsigned access_type, tag, ind;
+{
+    if(cache_assoc == 1)
+    {
+        switch (access_type) {
+            case TRACE_DATA_LOAD:
+                // TO DO
+            break;
+            case TRACE_DATA_STORE:
+                //TO DO
+            break;
+            case TRACE_INST_LOAD:
+                //TO DO
+            break;
+            default:
+                printf("skipping access, unknown type(%d)\n", access_type);
+        }
+    }
+    else if(cache_assoc > 1)
+    {
+        switch (access_type) {
+            case TRACE_DATA_LOAD:
+                // TO DO
+            break;
+            case TRACE_DATA_STORE:
+                //TO DO
+            break;
+            case TRACE_INST_LOAD:
+                //TO DO
+            break;
+            default:
+                printf("skipping access, unknown type(%d)\n", access_type);
+        }
+    }
+}
+
+void pa_wna_wt(access_type, tag, ind)
+  unsigned access_type, tag, ind;
+{
+    if(cache_assoc == 1)
+    {
+        switch (access_type) {
+            case TRACE_DATA_LOAD:
+                // TO DO
+            break;
+            case TRACE_DATA_STORE:
+                //TO DO
+            break;
+            case TRACE_INST_LOAD:
+                //TO DO
+            break;
+            default:
+                printf("skipping access, unknown type(%d)\n", access_type);
+        }
+    }
+    else if(cache_assoc > 1)
+    {
+        switch (access_type) {
+            case TRACE_DATA_LOAD:
+                // TO DO
+            break;
+            case TRACE_DATA_STORE:
+                //TO DO
+            break;
+            case TRACE_INST_LOAD:
+                //TO DO
+            break;
+            default:
+                printf("skipping access, unknown type(%d)\n", access_type);
+        }
+    }
+}
 
 /************************************************************/
 void perform_access(addr, access_type)
@@ -141,145 +372,14 @@ void perform_access(addr, access_type)
   tag = dcache->tag_mask & addr;
   ind = (addr & dcache->index_mask) >> dcache->index_mask_offset;
 
-  switch (access_type) {
-      case TRACE_DATA_LOAD:
-          if (cache_writealloc && cache_writeback)
-              ;
-          else if (cache_writealloc && !cache_writeback)
-              ;
-          else if (!cache_writealloc && cache_writeback)
-              ;
-          else if (!cache_writealloc && !cache_writeback)
-              ;
-          else
-              printf("TRACE_DATA_LOAD - ups\n");
-      break;
-      case TRACE_DATA_STORE:
-          if (cache_writealloc && cache_writeback)
-              ;
-          else if (cache_writealloc && !cache_writeback)
-              ;
-          else if (!cache_writealloc && cache_writeback)
-              ;
-          else if (!cache_writealloc && !cache_writeback)
-              ;
-          else
-              printf("TRACE_DATA_STORE - ups\n");
-      break;
-      case TRACE_INST_LOAD:
-          if (cache_writealloc && cache_writeback)
-              ;
-          else if (cache_writealloc && !cache_writeback)
-              ;
-          else if (!cache_writealloc && cache_writeback)
-              ;
-          else if (!cache_writealloc && !cache_writeback)
-              ;
-          else
-              printf("TRACE_INST_LOAD - ups\n");
-      break;
-      default:
-        printf("skipping access, unknown type(%d)\n", access_type);
-
-/*
-    case TRACE_DATA_LOAD:
-        cache_stat_data.accesses++;
-        if(dcache->LRU_head[ind] == NULL) // miss
-        {
-            cache_stat_data.misses++;
-            dcache->LRU_head[ind]=malloc(sizeof(cache_line));
-            dcache->LRU_head[ind]->tag = tag;
-            dcache->LRU_head[ind]->dirty = 0;
-            cache_stat_data.demand_fetches += words_per_block;
-        }
-        else if(dcache->LRU_head[ind]->tag != tag) //miss
-        {
-            if (dcache->LRU_head[ind]->dirty) {
-                cache_stat_data.copies_back += words_per_block;
-            }
-            cache_stat_data.misses++;
-            cache_stat_data.replacements++;
-            cache_stat_data.demand_fetches += words_per_block;
-            dcache->LRU_head[ind]->tag = tag;
-            dcache->LRU_head[ind]->dirty = 0;
-        }
-        break;
-    case TRACE_DATA_STORE:
-        cache_stat_data.accesses++;
-        if(dcache->LRU_head[ind] == NULL) // miss
-        {
-            cache_stat_data.misses++;
-            dcache->LRU_head[ind] = malloc(sizeof(cache_line));
-            dcache->LRU_head[ind]->tag = tag;
-            dcache->LRU_head[ind]->dirty = 1;
-            cache_stat_data.demand_fetches += words_per_block;
-        }
-        else if(dcache->LRU_head[ind]->tag != tag) //miss
-        {
-            if (dcache->LRU_head[ind]->dirty) {
-                cache_stat_data.copies_back += words_per_block;
-            }
-            cache_stat_data.misses++;
-            cache_stat_data.replacements++;
-            cache_stat_data.demand_fetches += words_per_block;
-            dcache->LRU_head[ind]->tag = tag;
-            dcache->LRU_head[ind]->dirty = 1;
-        }
-        else
-        {
-            dcache->LRU_head[ind]->dirty = 1;
-        }
-        break;
-    case TRACE_INST_LOAD:
-        cache_stat_inst.accesses++;
-        if(!cache_split){
-            if(dcache->LRU_head[ind] == NULL) // miss
-            {
-                cache_stat_inst.misses++;
-                dcache->LRU_head[ind]=malloc(sizeof(cache_line));
-                dcache->LRU_head[ind]->tag = tag;
-                dcache->LRU_head[ind]->dirty = 0;
-                cache_stat_inst.demand_fetches+=words_per_block;
-            }
-            else if(dcache->LRU_head[ind]->tag != tag) //miss
-            {
-                if (dcache->LRU_head[ind]->dirty) {
-                    cache_stat_data.copies_back+=words_per_block;
-                }
-                cache_stat_inst.misses++;
-                cache_stat_inst.replacements++;
-                cache_stat_inst.demand_fetches+=words_per_block;
-                dcache->LRU_head[ind]->tag = tag;
-                dcache->LRU_head[ind]->dirty = 0;
-            }
-        }
-        else{
-            if(icache->LRU_head[ind] == NULL) // miss
-            {
-                cache_stat_inst.misses++;
-                icache->LRU_head[ind]=malloc(sizeof(cache_line));
-                icache->LRU_head[ind]->tag = tag;
-                icache->LRU_head[ind]->dirty = 0;
-                cache_stat_inst.demand_fetches+=words_per_block;
-            }
-            else if(icache->LRU_head[ind]->tag != tag) //miss
-            {
-                if (icache->LRU_head[ind]->dirty) {
-                    cache_stat_data.copies_back+=words_per_block;
-                }
-                cache_stat_inst.misses++;
-                cache_stat_inst.replacements++;
-                cache_stat_inst.demand_fetches+=words_per_block;
-                icache->LRU_head[ind]->tag = tag;
-                icache->LRU_head[ind]->dirty = 0;
-            }
-        }
-            break;
-        default:
-            printf("skipping access, unknown type(%d)\n", access_type);
-*/
-  }
-
+  if (cache_writealloc && cache_writeback)
+      pa_wa_wb(access_type, tag, ind);
+  else if (cache_writealloc && !cache_writeback)
+      pa_wa_wt(access_type, tag, ind);
+  else if (!cache_writealloc && cache_writeback)
+      pa_wna_wb(access_type, tag, ind);
+  else if (!cache_writealloc && !cache_writeback)
+      pa_wna_wt(access_type, tag, ind);
 }
 /************************************************************/
 

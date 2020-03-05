@@ -6,6 +6,10 @@
 #define FALSE 0
 #define DIR_SIZE 32
 
+#define UCACHE -1
+#define ICACHE 0
+#define DCACHE 1
+
 /* default cache parameters--can be changed */
 #define WORD_SIZE 4 /* En bytes */ // 4B = 32 bits
 #define WORD_SIZE_OFFSET 2 /* En bits */ // 2 bits, line = 14 bits, tag = 16
@@ -63,6 +67,10 @@ typedef struct cache_stat_ {
 void set_cache_param();
 void init_cache();
 void perform_access();
+void pa_wa_wb();
+void pa_wa_wt();
+void pa_wna_wb();
+void pa_wna_wt();
 void flush();
 void delete();
 void insert();
