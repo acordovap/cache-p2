@@ -129,6 +129,11 @@ void init_cache()
 }
 /************************************************************/
 
+void has_item()
+{
+
+}
+
 void pa_wa_wb(access_type, tag, ind)
   unsigned access_type, tag, ind;
 {
@@ -258,13 +263,22 @@ void pa_wa_wt(access_type, tag, ind)
               cache_stat_data.accesses++;
               if(dcache->LRU_head[ind] == NULL) // miss
               {
+                  cache_stat_data.misses++;
+                  dcache->LRU_head[ind] = malloc(sizeof(cache_line));
+                  dcache->LRU_head[ind]->tag = tag;
+                  dcache->LRU_head[ind]->dirty = 0;
+                  cache_stat_data.demand_fetches += words_per_block;
               }
               else if(dcache->LRU_head[ind]->tag != tag) //miss
               {
+                  cache_stat_data.misses++;
+                  cache_stat_data.replacements++;
+                  cache_stat_data.demand_fetches += words_per_block;
+                  dcache->LRU_head[ind]->tag = tag;
+                  dcache->LRU_head[ind]->dirty = 0;
               }
-              else //hit
-              {
-              }
+              //hit
+              cache_stat_data.copies_back += 1;
             break;
             case TRACE_INST_LOAD:
               cache_stat_inst.accesses++;
@@ -280,9 +294,6 @@ void pa_wa_wt(access_type, tag, ind)
               }
               else if(pcache->LRU_head[ind]->tag != tag) //miss
               {
-                  if (pcache->LRU_head[ind]->dirty) {
-                      cache_stat_data.copies_back+=words_per_block;
-                  }
                   cache_stat_inst.misses++;
                   cache_stat_inst.replacements++;
                   cache_stat_inst.demand_fetches+=words_per_block;
@@ -461,7 +472,7 @@ void insert(head, tail, item)
 
 void custom_print()
 {
-  printf("%d B, %s, %d, %d, %s, %s, %d, %d, %d, %d, %d, %d\n",
+  printf("%d, %s, %d, %d, %s, %s, %d, %d, %d, %d, %d, %d\n",
     cache_split ? cache_isize : cache_usize,
     cache_split ? "Split" : "Unified",
     cache_block_size, cache_assoc,
