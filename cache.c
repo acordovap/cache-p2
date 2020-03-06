@@ -267,7 +267,7 @@ void pa_wa_wt(access_type, tag, ind)
               }
             break;
             case TRACE_INST_LOAD:
-              ache_stat_inst.accesses++;
+              cache_stat_inst.accesses++;
               Pcache pcache = cache_split ? &c1 : &c2;
 
               if(pcache->LRU_head[ind] == NULL) // miss
