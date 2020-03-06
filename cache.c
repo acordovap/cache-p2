@@ -330,13 +330,67 @@ void pa_wna_wb(access_type, tag, ind)
     {
         switch (access_type) {
             case TRACE_DATA_LOAD:
-                // TO DO
+                cache_stat_data.accesses++;
+                if(dcache->LRU_head[ind] == NULL) // miss
+                {
+                    cache_stat_data.misses++;
+                    dcache->LRU_head[ind]=malloc(sizeof(cache_line));
+                    dcache->LRU_head[ind]->tag = tag;
+                    dcache->LRU_head[ind]->dirty = 0;
+                    cache_stat_data.demand_fetches += words_per_block;
+                }
+                else if(dcache->LRU_head[ind]->tag != tag) //miss
+                {
+                    if (dcache->LRU_head[ind]->dirty) {
+                        cache_stat_data.copies_back += words_per_block;
+                    }
+                    cache_stat_data.misses++;
+                    cache_stat_data.replacements++;
+                    cache_stat_data.demand_fetches += words_per_block;
+                    dcache->LRU_head[ind]->tag = tag;
+                    dcache->LRU_head[ind]->dirty = 0;
+                }
             break;
             case TRACE_DATA_STORE:
-                //TO DO
+                cache_stat_data.accesses++;
+                if(dcache->LRU_head[ind] == NULL) // miss
+                {
+                    cache_stat_data.misses++;
+                    cache_stat_data.copies_back ++;
+                }
+                else if(dcache->LRU_head[ind]->tag != tag) //miss
+                {
+                    cache_stat_data.misses++;
+                    cache_stat_data.copies_back++;
+                }
+                else //hit
+                {
+                    dcache->LRU_head[ind]->dirty = 1;
+                }
             break;
             case TRACE_INST_LOAD:
-                //TO DO
+                cache_stat_inst.accesses++;
+                Pcache pcache = cache_split ? &c1 : &c2;
+
+                if(pcache->LRU_head[ind] == NULL) // miss
+                {
+                    cache_stat_inst.misses++;
+                    pcache->LRU_head[ind]=malloc(sizeof(cache_line));
+                    pcache->LRU_head[ind]->tag = tag;
+                    pcache->LRU_head[ind]->dirty = 0;
+                    cache_stat_inst.demand_fetches+=words_per_block;
+                }
+                else if(pcache->LRU_head[ind]->tag != tag) //miss
+                {
+                    if (pcache->LRU_head[ind]->dirty) {
+                        cache_stat_data.copies_back+=words_per_block;
+                    }
+                    cache_stat_inst.misses++;
+                    cache_stat_inst.replacements++;
+                    cache_stat_inst.demand_fetches+=words_per_block;
+                    pcache->LRU_head[ind]->tag = tag;
+                    pcache->LRU_head[ind]->dirty = 0;
+                }
             break;
             default:
                 printf("skipping access, unknown type(%d)\n", access_type);
@@ -360,6 +414,7 @@ void pa_wna_wb(access_type, tag, ind)
     }
 }
 
+//este no vienen ejemplos
 void pa_wna_wt(access_type, tag, ind)
   unsigned access_type, tag, ind;
 {
