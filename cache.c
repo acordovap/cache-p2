@@ -172,10 +172,17 @@ void insert_on_conflict_miss(pcache, ind, tag, dirty)
   Pcache_line nl = malloc(sizeof(cache_line));
   nl->tag = tag;
   nl->dirty = dirty;
+  delete(&pcache->LRU_head[ind], &pcache->LRU_tail[ind], pcache->LRU_tail[ind]);
   insert(&pcache->LRU_head[ind], &pcache->LRU_tail[ind], nl);
-  //delete(&pcache->LRU_head[ind], &pcache->LRU_tail[ind], pcache->LRU_tail[ind]);
 }
-void insert_on_hit();
+
+void insert_on_hit(pcache, ind, tag, dirty)
+  Pcache pcache;
+  unsigned ind, tag, dirty;
+{
+  //el índice de donde está lo dice pcache->contents;
+  //hay que removerlo e insertarlo de nuevo con el dirty del parámetro??
+}
 
 void pa_wa_wb(access_type, tag, ind)
   unsigned access_type, tag, ind;
@@ -193,6 +200,7 @@ void pa_wa_wb(access_type, tag, ind)
                     cache_stat_data.demand_fetches += words_per_block;
                 }
                 else if(dcache->contents < cache_assoc){ // hit
+                  //insert_on_hit();
                 }
                 else // conflict miss
                 {
@@ -211,13 +219,12 @@ void pa_wa_wb(access_type, tag, ind)
                 if(dcache->contents < 0) // compulsory miss
                 {
                     cache_stat_data.misses++;
-                    dcache->LRU_head[ind] = malloc(sizeof(cache_line));
-                    dcache->LRU_head[ind]->tag = tag;
-                    dcache->LRU_head[ind]->dirty = 1;
+                    insert_on_compulsory_miss(dcache, ind, tag, 1);
                     cache_stat_data.demand_fetches += words_per_block;
                 }
                 else if(dcache->contents < cache_assoc){ // hit
-                    dcache->LRU_head[ind]->dirty = 1;
+                    dcache->LRU_head[ind]->dirty = 1; //esta se debe quitar cuando quede insert_on_hit
+                    //insert_on_hit();
                 }
                 else // conflict miss
                 {
@@ -227,8 +234,7 @@ void pa_wa_wb(access_type, tag, ind)
                     cache_stat_data.misses++;
                     cache_stat_data.replacements++;
                     cache_stat_data.demand_fetches += words_per_block;
-                    dcache->LRU_head[ind]->tag = tag;
-                    dcache->LRU_head[ind]->dirty = 1;
+                    insert_on_conflict_miss(dcache, ind, tag, 1);
                 }
             break;
             case TRACE_INST_LOAD:
@@ -239,12 +245,11 @@ void pa_wa_wb(access_type, tag, ind)
                 if(pcache->contents < 0) // compulsory miss
                 {
                     cache_stat_inst.misses++;
-                    pcache->LRU_head[ind]=malloc(sizeof(cache_line));
-                    pcache->LRU_head[ind]->tag = tag;
-                    pcache->LRU_head[ind]->dirty = 0;
+                    insert_on_compulsory_miss(pcache, ind, tag, 0);
                     cache_stat_inst.demand_fetches+=words_per_block;
                 }
                 else if(pcache->contents < cache_assoc){ // hit
+                    //insert_on_hit
                 }
                 else // conflict miss
                 {
@@ -254,8 +259,7 @@ void pa_wa_wb(access_type, tag, ind)
                     cache_stat_inst.misses++;
                     cache_stat_inst.replacements++;
                     cache_stat_inst.demand_fetches+=words_per_block;
-                    pcache->LRU_head[ind]->tag = tag;
-                    pcache->LRU_head[ind]->dirty = 0;
+                    insert_on_conflict_miss(pcache, ind, tag, 0);
                 }
             break;
             default:
@@ -526,12 +530,12 @@ void flush()
   for(int i=0; i < dcache->n_sets; i++){
       if(dcache->LRU_head[i]!=NULL){
         Pcache_line current = dcache->LRU_head[i];
-        //while(current != NULL)
-        //{
+        while(current != NULL)
+        {
           if(current->dirty)
               cache_stat_data.copies_back+=words_per_block;
-          //current =  current->LRU_next;
-        //}
+          current =  current->LRU_next;
+        }
       }
   }
 }
