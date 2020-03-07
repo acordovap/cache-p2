@@ -500,12 +500,17 @@ void perform_access(addr, access_type)
 /************************************************************/
 void flush()
 {
-
-  /* flush the cache */
-  for(int i=0; i < dcache->n_sets; i++)
-      if(dcache->LRU_head[i]!=NULL)
-        if(dcache->LRU_head[i]->dirty)
-            cache_stat_data.copies_back+=words_per_block;
+  for(int i=0; i < dcache->n_sets; i++){
+      if(dcache->LRU_head[i]!=NULL){
+        Pcache_line current = dcache->LRU_head[i];
+        while(current != NULL)
+        {
+          if(current->dirty)
+              cache_stat_data.copies_back+=words_per_block;
+          current =  current->LRU_next;
+        }
+      }
+  }
 }
 /************************************************************/
 
