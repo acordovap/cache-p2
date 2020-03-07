@@ -86,8 +86,8 @@ void init_pcache(pcache, type)
     pcache->associativity = cache_assoc;
     pcache->n_sets = pcache->size / cache_block_size / pcache->associativity;
     pcache->LRU_head = (Pcache_line*)malloc(sizeof(Pcache_line)*pcache->n_sets);
-    pcache->LRU_tail=NULL;
-    pcache->contents=0;
+    pcache->LRU_tail = pcache->LRU_head;//NULL;
+    pcache->contents = 0;
     pcache->tag_mask_offset = LOG2(pcache->size);
     pcache->tag_mask = MASK << pcache->tag_mask_offset;
     pcache->index_mask_offset = pcache->tag_mask_offset - LOG2(pcache->n_sets);
@@ -153,6 +153,34 @@ void search_item(pcache, ind, tag)
   }
 }
 
+void insert_on_compulsory_miss(pcache, ind, tag, dirty)
+  Pcache pcache;
+  unsigned ind, tag, dirty;
+{
+  Pcache_line nl = malloc(sizeof(cache_line));
+  nl->tag = tag;
+  nl->dirty = dirty;
+
+  if (pcache->LRU_head[ind]) {
+    insert(&pcache->LRU_head[ind], &pcache->LRU_tail[ind], nl);
+  } else {
+    pcache->LRU_head[ind] = nl;
+    pcache->LRU_tail[ind] = pcache->LRU_head[ind];
+  }
+}
+
+void insert_on_conflict_miss(pcache, ind, tag, dirty)
+  Pcache pcache;
+  unsigned ind, tag, dirty;
+{
+  Pcache_line nl = malloc(sizeof(cache_line));
+  nl->tag = tag;
+  nl->dirty = dirty;
+  insert(&pcache->LRU_head[ind], &pcache->LRU_tail[ind], nl);
+  //delete(&pcache->LRU_head[ind], &pcache->LRU_tail[ind], pcache->LRU_tail[ind]);
+}
+void insert_on_hit();
+
 void pa_wa_wb(access_type, tag, ind)
   unsigned access_type, tag, ind;
 {
@@ -161,17 +189,50 @@ void pa_wa_wb(access_type, tag, ind)
         switch (access_type) {
             case TRACE_DATA_LOAD:
                 cache_stat_data.accesses++;
-                search_item(dcache, ind, tag);
                 //if(dcache->LRU_head[ind] == NULL) // miss
+                search_item(dcache, ind, tag);
                 if(dcache->contents < 0) // compulsory miss
                 {
                     cache_stat_data.misses++;
+                    /*
                     dcache->LRU_head[ind]=malloc(sizeof(cache_line));
                     dcache->LRU_head[ind]->tag = tag;
                     dcache->LRU_head[ind]->dirty = 0;
+                    */
+                    insert_on_compulsory_miss(dcache, ind, tag, 0);
                     cache_stat_data.demand_fetches += words_per_block;
                 }
                 else if(dcache->contents < cache_assoc){ // hit
+                }
+                else // conflict miss
+                {
+                    //if (dcache->LRU_head[ind]->dirty) {
+                    if (dcache->LRU_tail[ind]->dirty) {
+                        cache_stat_data.copies_back += words_per_block;
+                    }
+                    cache_stat_data.misses++;
+                    cache_stat_data.replacements++;
+                    cache_stat_data.demand_fetches += words_per_block;
+                    /*
+                    dcache->LRU_head[ind]->tag = tag;
+                    dcache->LRU_head[ind]->dirty = 0;*/
+                    insert_on_conflict_miss(dcache, ind, tag, 0);
+                }
+            break;
+            case TRACE_DATA_STORE:
+                cache_stat_data.accesses++;
+                //if(dcache->LRU_head[ind] == NULL) // miss
+                search_item(dcache, ind, tag);
+                if(dcache->contents < 0) // compulsory miss
+                {
+                    cache_stat_data.misses++;
+                    dcache->LRU_head[ind] = malloc(sizeof(cache_line));
+                    dcache->LRU_head[ind]->tag = tag;
+                    dcache->LRU_head[ind]->dirty = 1;
+                    cache_stat_data.demand_fetches += words_per_block;
+                }
+                else if(dcache->contents < cache_assoc){ // hit
+                    dcache->LRU_head[ind]->dirty = 1;
                 }
                 else // conflict miss
                 {
@@ -182,32 +243,6 @@ void pa_wa_wb(access_type, tag, ind)
                     cache_stat_data.replacements++;
                     cache_stat_data.demand_fetches += words_per_block;
                     dcache->LRU_head[ind]->tag = tag;
-                    dcache->LRU_head[ind]->dirty = 0;
-                }
-            break;
-            case TRACE_DATA_STORE:
-                cache_stat_data.accesses++;
-                if(dcache->LRU_head[ind] == NULL) // miss
-                {
-                    cache_stat_data.misses++;
-                    dcache->LRU_head[ind] = malloc(sizeof(cache_line));
-                    dcache->LRU_head[ind]->tag = tag;
-                    dcache->LRU_head[ind]->dirty = 1;
-                    cache_stat_data.demand_fetches += words_per_block;
-                }
-                else if(dcache->LRU_head[ind]->tag != tag) //miss
-                {
-                    if (dcache->LRU_head[ind]->dirty) {
-                        cache_stat_data.copies_back += words_per_block;
-                    }
-                    cache_stat_data.misses++;
-                    cache_stat_data.replacements++;
-                    cache_stat_data.demand_fetches += words_per_block;
-                    dcache->LRU_head[ind]->tag = tag;
-                    dcache->LRU_head[ind]->dirty = 1;
-                }
-                else //hit
-                {
                     dcache->LRU_head[ind]->dirty = 1;
                 }
             break;
@@ -215,7 +250,9 @@ void pa_wa_wb(access_type, tag, ind)
                 cache_stat_inst.accesses++;
                 Pcache pcache = cache_split ? &c1 : &c2;
 
-                if(pcache->LRU_head[ind] == NULL) // miss
+                //if(pcache->LRU_head[ind] == NULL) // miss
+                search_item(pcache, ind, tag);
+                if(pcache->contents < 0) // compulsory miss
                 {
                     cache_stat_inst.misses++;
                     pcache->LRU_head[ind]=malloc(sizeof(cache_line));
@@ -223,7 +260,9 @@ void pa_wa_wb(access_type, tag, ind)
                     pcache->LRU_head[ind]->dirty = 0;
                     cache_stat_inst.demand_fetches+=words_per_block;
                 }
-                else if(pcache->LRU_head[ind]->tag != tag) //miss
+                else if(pcache->contents < cache_assoc){ // hit
+                }
+                else // conflict miss
                 {
                     if (pcache->LRU_head[ind]->dirty) {
                         cache_stat_data.copies_back+=words_per_block;
