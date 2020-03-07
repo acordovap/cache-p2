@@ -92,8 +92,10 @@ void init_pcache(pcache, type)
     pcache->tag_mask = MASK << pcache->tag_mask_offset;
     pcache->index_mask_offset = pcache->tag_mask_offset - LOG2(pcache->n_sets);
     pcache->index_mask = (MASK >> ( (DIR_SIZE - pcache->tag_mask_offset) + pcache->index_mask_offset ) ) << pcache->index_mask_offset;
-    for(int i=0; i < pcache->n_sets; i++)
+    for(int i=0; i < pcache->n_sets; i++){
       pcache->LRU_head[i]=NULL;
+      pcache->LRU_tail[i]=pcache->LRU_head[i];
+    }
 }
 
 /************************************************************/
@@ -160,13 +162,7 @@ void insert_on_compulsory_miss(pcache, ind, tag, dirty)
   Pcache_line nl = malloc(sizeof(cache_line));
   nl->tag = tag;
   nl->dirty = dirty;
-
-  if (pcache->LRU_head[ind]) {
-    insert(&pcache->LRU_head[ind], &pcache->LRU_tail[ind], nl);
-  } else {
-    pcache->LRU_head[ind] = nl;
-    pcache->LRU_tail[ind] = pcache->LRU_head[ind];
-  }
+  insert(&pcache->LRU_head[ind], &pcache->LRU_tail[ind], nl);
 }
 
 void insert_on_conflict_miss(pcache, ind, tag, dirty)
@@ -189,16 +185,10 @@ void pa_wa_wb(access_type, tag, ind)
         switch (access_type) {
             case TRACE_DATA_LOAD:
                 cache_stat_data.accesses++;
-                //if(dcache->LRU_head[ind] == NULL) // miss
                 search_item(dcache, ind, tag);
                 if(dcache->contents < 0) // compulsory miss
                 {
                     cache_stat_data.misses++;
-                    /*
-                    dcache->LRU_head[ind]=malloc(sizeof(cache_line));
-                    dcache->LRU_head[ind]->tag = tag;
-                    dcache->LRU_head[ind]->dirty = 0;
-                    */
                     insert_on_compulsory_miss(dcache, ind, tag, 0);
                     cache_stat_data.demand_fetches += words_per_block;
                 }
@@ -206,22 +196,17 @@ void pa_wa_wb(access_type, tag, ind)
                 }
                 else // conflict miss
                 {
-                    //if (dcache->LRU_head[ind]->dirty) {
-                    if (dcache->LRU_tail[ind]->dirty) {
-                        cache_stat_data.copies_back += words_per_block;
-                    }
                     cache_stat_data.misses++;
                     cache_stat_data.replacements++;
                     cache_stat_data.demand_fetches += words_per_block;
-                    /*
-                    dcache->LRU_head[ind]->tag = tag;
-                    dcache->LRU_head[ind]->dirty = 0;*/
+                    if (dcache->LRU_tail[ind]->dirty) {
+                        cache_stat_data.copies_back += words_per_block;
+                    }
                     insert_on_conflict_miss(dcache, ind, tag, 0);
                 }
             break;
             case TRACE_DATA_STORE:
                 cache_stat_data.accesses++;
-                //if(dcache->LRU_head[ind] == NULL) // miss
                 search_item(dcache, ind, tag);
                 if(dcache->contents < 0) // compulsory miss
                 {
@@ -250,7 +235,6 @@ void pa_wa_wb(access_type, tag, ind)
                 cache_stat_inst.accesses++;
                 Pcache pcache = cache_split ? &c1 : &c2;
 
-                //if(pcache->LRU_head[ind] == NULL) // miss
                 search_item(pcache, ind, tag);
                 if(pcache->contents < 0) // compulsory miss
                 {
@@ -542,12 +526,12 @@ void flush()
   for(int i=0; i < dcache->n_sets; i++){
       if(dcache->LRU_head[i]!=NULL){
         Pcache_line current = dcache->LRU_head[i];
-        while(current != NULL)
-        {
+        //while(current != NULL)
+        //{
           if(current->dirty)
               cache_stat_data.copies_back+=words_per_block;
-          current =  current->LRU_next;
-        }
+          //current =  current->LRU_next;
+        //}
       }
   }
 }
