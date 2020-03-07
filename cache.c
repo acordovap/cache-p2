@@ -87,7 +87,7 @@ void init_pcache(pcache, type)
     pcache->n_sets = pcache->size / cache_block_size / pcache->associativity;
     pcache->LRU_head = (Pcache_line*)malloc(sizeof(Pcache_line)*pcache->n_sets);
     pcache->LRU_tail=NULL;
-    //pcache->contents=NULL;
+    pcache->contents=0;
     pcache->tag_mask_offset = LOG2(pcache->size);
     pcache->tag_mask = MASK << pcache->tag_mask_offset;
     pcache->index_mask_offset = pcache->tag_mask_offset - LOG2(pcache->n_sets);
@@ -129,9 +129,28 @@ void init_cache()
 }
 /************************************************************/
 
-void has_item()
+void search_item(pcache, ind, tag)
+  Pcache pcache;
+  unsigned ind, tag;
 {
-
+  Pcache_line current = pcache->LRU_head[ind];
+  pcache->contents = -1;
+  while(current != NULL)
+  {
+    pcache->contents++;
+    if (current->tag == tag) {
+      break;
+    }
+    else{
+      current =  current->LRU_next;
+      if (current == NULL) {
+        pcache->contents++;
+        if (pcache->contents < cache_assoc) {
+          pcache->contents = -1;
+        }
+      }
+    }
+  }
 }
 
 void pa_wa_wb(access_type, tag, ind)
@@ -142,7 +161,9 @@ void pa_wa_wb(access_type, tag, ind)
         switch (access_type) {
             case TRACE_DATA_LOAD:
                 cache_stat_data.accesses++;
-                if(dcache->LRU_head[ind] == NULL) // miss
+                search_item(dcache, ind, tag);
+                //if(dcache->LRU_head[ind] == NULL) // miss
+                if(dcache->contents < 0) // compulsory miss
                 {
                     cache_stat_data.misses++;
                     dcache->LRU_head[ind]=malloc(sizeof(cache_line));
@@ -150,7 +171,9 @@ void pa_wa_wb(access_type, tag, ind)
                     dcache->LRU_head[ind]->dirty = 0;
                     cache_stat_data.demand_fetches += words_per_block;
                 }
-                else if(dcache->LRU_head[ind]->tag != tag) //miss
+                else if(dcache->contents < cache_assoc){ // hit
+                }
+                else // conflict miss
                 {
                     if (dcache->LRU_head[ind]->dirty) {
                         cache_stat_data.copies_back += words_per_block;

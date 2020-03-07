@@ -71,6 +71,7 @@ void pa_wa_wb();
 void pa_wa_wt();
 void pa_wna_wb();
 void pa_wna_wt();
+void search_item();
 void flush();
 void delete();
 void insert();
