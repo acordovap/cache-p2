@@ -180,15 +180,26 @@ void insert_on_hit(pcache, ind, tag, dirty)
   Pcache pcache;
   unsigned ind, tag, dirty;
 {
-  //el índice de donde está lo dice pcache->contents;
-  //hay que removerlo e insertarlo de nuevo con el dirty del parámetro??
+  Pcache_line current = pcache->LRU_head[ind];
+  while(current != NULL)
+  {
+    if (current->tag == tag) {
+      current->dirty = current->dirty + dirty;
+      delete(&pcache->LRU_head[ind], &pcache->LRU_tail[ind], current);
+      insert(&pcache->LRU_head[ind], &pcache->LRU_tail[ind], current);
+      break;
+    }
+    else {
+      current =  current->LRU_next;
+    }
+  }
 }
 
 void pa_wa_wb(access_type, tag, ind)
   unsigned access_type, tag, ind;
 {
-    if(cache_assoc == 1)
-    {
+    //if(cache_assoc == 1)
+    //{
         switch (access_type) {
             case TRACE_DATA_LOAD:
                 cache_stat_data.accesses++;
@@ -200,7 +211,7 @@ void pa_wa_wb(access_type, tag, ind)
                     cache_stat_data.demand_fetches += words_per_block;
                 }
                 else if(dcache->contents < cache_assoc){ // hit
-                  //insert_on_hit();
+                    insert_on_hit(dcache, ind, tag, 0);
                 }
                 else // conflict miss
                 {
@@ -223,12 +234,12 @@ void pa_wa_wb(access_type, tag, ind)
                     cache_stat_data.demand_fetches += words_per_block;
                 }
                 else if(dcache->contents < cache_assoc){ // hit
-                    dcache->LRU_head[ind]->dirty = 1; //esta se debe quitar cuando quede insert_on_hit
-                    //insert_on_hit();
+                    //dcache->LRU_head[ind]->dirty = 1; //esta se debe quitar cuando quede insert_on_hit
+                    insert_on_hit(dcache, ind, tag, 1);
                 }
                 else // conflict miss
                 {
-                    if (dcache->LRU_head[ind]->dirty) {
+                    if (dcache->LRU_tail[ind]->dirty) {
                         cache_stat_data.copies_back += words_per_block;
                     }
                     cache_stat_data.misses++;
@@ -249,11 +260,11 @@ void pa_wa_wb(access_type, tag, ind)
                     cache_stat_inst.demand_fetches+=words_per_block;
                 }
                 else if(pcache->contents < cache_assoc){ // hit
-                    //insert_on_hit
+                    insert_on_hit(dcache, ind, tag, 0);
                 }
                 else // conflict miss
                 {
-                    if (pcache->LRU_head[ind]->dirty) {
+                    if (pcache->LRU_tail[ind]->dirty) {
                         cache_stat_data.copies_back+=words_per_block;
                     }
                     cache_stat_inst.misses++;
@@ -265,7 +276,7 @@ void pa_wa_wb(access_type, tag, ind)
             default:
                 printf("skipping access, unknown type(%d)\n", access_type);
         }
-    }
+    /*}
     else if(cache_assoc > 1)
     {
         switch (access_type) {
@@ -281,7 +292,7 @@ void pa_wa_wb(access_type, tag, ind)
             default:
                 printf("skipping access, unknown type(%d)\n", access_type);
         }
-    }
+    }*/
 }
 
 void pa_wa_wt(access_type, tag, ind)
