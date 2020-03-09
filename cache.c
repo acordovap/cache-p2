@@ -512,18 +512,19 @@ void perform_access(addr, access_type)
 
   /* handle an access to the cache */
 
-  unsigned tag, ind;
-  tag = dcache->tag_mask & addr;
-  ind = (addr & dcache->index_mask) >> dcache->index_mask_offset;
+    unsigned tag, ind;
+    tag = dcache->tag_mask & addr;
+    ind = (addr & dcache->index_mask) >> dcache->index_mask_offset;
 
-  if (cache_writealloc && cache_writeback)
-      pa_wa_wb(access_type, tag, ind);
-  else if (cache_writealloc && !cache_writeback)
-      pa_wa_wt(access_type, tag, ind);
-  else if (!cache_writealloc && cache_writeback)
-      pa_wna_wb(access_type, tag, ind);
-  else if (!cache_writealloc && !cache_writeback)
-      pa_wna_wt(access_type, tag, ind);
+    if (cache_writealloc && cache_writeback)
+        pa_wa_wb(access_type, tag, ind);
+    else if (cache_writealloc && !cache_writeback)
+        pa_wa_wt(access_type, tag, ind);
+    else if (!cache_writealloc && cache_writeback)
+        pa_wna_wb(access_type, tag, ind);
+    else if (!cache_writealloc && !cache_writeback)
+        pa_wna_wt(access_type, tag, ind);
+
 }
 /************************************************************/
 
