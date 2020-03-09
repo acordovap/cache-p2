@@ -329,90 +329,88 @@ void pa_wa_wb(access_type, tag, ind)
 void pa_wa_wt(access_type, tag, ind)
   unsigned access_type, tag, ind;
 {
-    if(cache_assoc == 1)
-    {
-        switch (access_type) {
-            case TRACE_DATA_LOAD:
-              cache_stat_data.accesses++;
-              if(dcache->LRU_head[ind] == NULL) // miss
-              {
-                  cache_stat_data.misses++;
-                  dcache->LRU_head[ind]=malloc(sizeof(cache_line));
-                  dcache->LRU_head[ind]->tag = tag;
-                  dcache->LRU_head[ind]->dirty = 0;
-                  cache_stat_data.demand_fetches += words_per_block;
-              }
-              else if(dcache->LRU_head[ind]->tag != tag) //miss
-              {
-                  cache_stat_data.misses++;
-                  cache_stat_data.replacements++;
-                  cache_stat_data.demand_fetches += words_per_block;
-                  dcache->LRU_head[ind]->tag = tag;
-                  dcache->LRU_head[ind]->dirty = 0;
-              }
-            break;
-            case TRACE_DATA_STORE:
-              cache_stat_data.accesses++;
-              if(dcache->LRU_head[ind] == NULL) // miss
-              {
-                  cache_stat_data.misses++;
-                  dcache->LRU_head[ind] = malloc(sizeof(cache_line));
-                  dcache->LRU_head[ind]->tag = tag;
-                  dcache->LRU_head[ind]->dirty = 0;
-                  cache_stat_data.demand_fetches += words_per_block;
-              }
-              else if(dcache->LRU_head[ind]->tag != tag) //miss
-              {
-                  cache_stat_data.misses++;
-                  cache_stat_data.replacements++;
-                  cache_stat_data.demand_fetches += words_per_block;
-                  dcache->LRU_head[ind]->tag = tag;
-                  dcache->LRU_head[ind]->dirty = 0;
-              }
-              //hit
-              cache_stat_data.copies_back += 1;
-            break;
-            case TRACE_INST_LOAD:
-              cache_stat_inst.accesses++;
-              Pcache pcache = cache_split ? &c1 : &c2;
+    switch (access_type) {
+        case TRACE_DATA_LOAD:
+          search_item(dcache, ind, tag);
+          if(dcache->contents < 0) // compulsory miss
+          {
+              cache_stat_data.misses++;
+              insert_on_compulsory_miss(dcache, ind, tag, 0);
+              //dcache->LRU_head[ind]=malloc(sizeof(cache_line));
+              //dcache->LRU_head[ind]->tag = tag;
+              //dcache->LRU_head[ind]->dirty = 0;
+              cache_stat_data.demand_fetches += words_per_block;
+          }
+          else if(dcache->contents < cache_assoc){ // hit
+              insert_on_hit(dcache, ind, tag, 0);
+          }
+          else // conflict miss
+          {
+              cache_stat_data.misses++;
+              cache_stat_data.replacements++;
+              cache_stat_data.demand_fetches += words_per_block;
+              insert_on_conflict_miss(dcache, ind, tag, 0);
+              //dcache->LRU_head[ind]->tag = tag;
+              //dcache->LRU_head[ind]->dirty = 0;
+          }
+        break;
+        case TRACE_DATA_STORE:
+          cache_stat_data.accesses++;
+          search_item(dcache, ind, tag);
+          if(dcache->contents < 0) // compulsory miss
+          {
+              cache_stat_data.misses++;
+              // dcache->LRU_head[ind] = malloc(sizeof(cache_line));
+              // dcache->LRU_head[ind]->tag = tag;
+              // dcache->LRU_head[ind]->dirty = 0;
+              insert_on_compulsory_miss(dcache, ind, tag, 0);
+              cache_stat_data.demand_fetches += words_per_block;
+          }
+          else if(dcache->contents < cache_assoc){ // hit
+            insert_on_hit(dcache, ind, tag, 0);
+          }
+          else //conflict miss
+          {
+              cache_stat_data.misses++;
+              cache_stat_data.replacements++;
+              cache_stat_data.demand_fetches += words_per_block;
+              // dcache->LRU_head[ind]->tag = tag;
+              // dcache->LRU_head[ind]->dirty = 0;
+                insert_on_conflict_miss(dcache, ind, tag, 0);
+          }
+          cache_stat_data.copies_back += 1;
+        break;
+        case TRACE_INST_LOAD:
+          cache_stat_inst.accesses++;
+          Pcache pcache = cache_split ? &c1 : &c2;
 
-              if(pcache->LRU_head[ind] == NULL) // miss
-              {
-                  cache_stat_inst.misses++;
-                  pcache->LRU_head[ind]=malloc(sizeof(cache_line));
-                  pcache->LRU_head[ind]->tag = tag;
-                  pcache->LRU_head[ind]->dirty = 0;
-                  cache_stat_inst.demand_fetches+=words_per_block;
-              }
-              else if(pcache->LRU_head[ind]->tag != tag) //miss
-              {
-                  cache_stat_inst.misses++;
-                  cache_stat_inst.replacements++;
-                  cache_stat_inst.demand_fetches+=words_per_block;
-                  pcache->LRU_head[ind]->tag = tag;
-                  pcache->LRU_head[ind]->dirty = 0;
-              }
-            break;
-            default:
-                printf("skipping access, unknown type(%d)\n", access_type);
-        }
+          search_item(pcache, ind, tag);
+          if(pcache->contents < 0) // compulsory miss
+          {
+              cache_stat_inst.misses++;
+              // pcache->LRU_head[ind]=malloc(sizeof(cache_line));
+              // pcache->LRU_head[ind]->tag = tag;
+              // pcache->LRU_head[ind]->dirty = 0;
+              insert_on_compulsory_miss(pcache, ind, tag, 0);
+              cache_stat_inst.demand_fetches+=words_per_block;
+          }
+          else if(pcache->contents < cache_assoc){ // hit
+              insert_on_hit(dcache, ind, tag, 0);
+          }
+          else // conflict miss
+          {
+              cache_stat_inst.misses++;
+              cache_stat_inst.replacements++;
+              cache_stat_inst.demand_fetches+=words_per_block;
+              // pcache->LRU_head[ind]->tag = tag;
+              // pcache->LRU_head[ind]->dirty = 0;
+              insert_on_conflict_miss(pcache, ind, tag, 0);
+          }
+        break;
+        default:
+            printf("skipping access, unknown type(%d)\n", access_type);
     }
-    else if(cache_assoc > 1)
-    {
-        switch (access_type) {
-            case TRACE_DATA_LOAD:
-                // TO DO
-            break;
-            case TRACE_DATA_STORE:
-                //TO DO
-            break;
-            case TRACE_INST_LOAD:
-                //TO DO
-            break;
-            default:
-                printf("skipping access, unknown type(%d)\n", access_type);
-        }
-    }
+
 }
 
 void pa_wna_wb(access_type, tag, ind)
