@@ -367,7 +367,7 @@ void pa_wna_wb(access_type, tag, ind)
               }
               else // conflict miss
               {
-                  if (dcache->LRU_head[ind]->dirty) {
+                  if (dcache->LRU_tail[ind]->dirty) {
                       cache_stat_data.copies_back += words_per_block;
                   }
                   cache_stat_data.misses++;
@@ -409,7 +409,7 @@ void pa_wna_wb(access_type, tag, ind)
               }
               else // conflict miss
               {
-                  if (pcache->LRU_head[ind]->dirty) {
+                  if (pcache->LRU_tail[ind]->dirty) {
                       cache_stat_data.copies_back+=words_per_block;
                   }
                   cache_stat_inst.misses++;
