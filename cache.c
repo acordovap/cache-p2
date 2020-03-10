@@ -601,6 +601,23 @@ void custom_print()
     cache_stat_inst.copies_back + cache_stat_data.copies_back);
 }
 
+void report_print()
+{
+  printf("%d, %s, %d, %d, %s, %s, %d, %d, %d, %d, %d, %d, %2.4f, %2.4f\n",
+    cache_split ? cache_isize : cache_usize,
+    cache_split ? "Split" : "Unified",
+    cache_block_size, cache_assoc,
+    cache_writeback ? "WB" : "WT",
+    cache_writealloc ? "WA" : "WNA",
+    cache_stat_inst.misses, cache_stat_inst.replacements,
+    cache_stat_data.misses, cache_stat_data.replacements,
+    cache_stat_inst.demand_fetches + cache_stat_data.demand_fetches,
+    cache_stat_inst.copies_back + cache_stat_data.copies_back,
+    1.0 - (float)cache_stat_inst.misses / (float)cache_stat_inst.accesses,
+    1.0 - (float)cache_stat_data.misses / (float)cache_stat_data.accesses
+  );
+}
+
 /************************************************************/
 void dump_settings()
 {

@@ -78,6 +78,7 @@ void insert();
 void dump_settings();
 void print_stats();
 void custom_print();
+void report_print();
 void init_pcache();
 void insert_on_compulsory_miss();
 void insert_on_conflict_miss();
