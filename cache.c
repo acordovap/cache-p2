@@ -283,6 +283,7 @@ void pa_wa_wt(access_type, tag, ind)
 {
     switch (access_type) {
         case TRACE_DATA_LOAD:
+          cache_stat_data.accesses++;
           search_item(dcache, ind, tag);
           if(dcache->contents < 0) // compulsory miss
           {
@@ -361,6 +362,7 @@ void pa_wna_wb(access_type, tag, ind)
 {
       switch (access_type) {
           case TRACE_DATA_LOAD:
+              cache_stat_data.accesses++;
               search_item(dcache, ind, tag);
               if(dcache->contents < 0) // compulsory miss
               {
@@ -436,6 +438,7 @@ void pa_wna_wt(access_type, tag, ind)
 {
       switch (access_type) {
           case TRACE_DATA_LOAD:
+            cache_stat_data.accesses++;
             search_item(dcache, ind, tag);
             if(dcache->contents < 0) // compulsory miss
             {
