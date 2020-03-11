@@ -71,7 +71,6 @@ do
         for k in 2 4 # associativity
         do
           ./sim -is $i -ds $i -bs $j -a $k -wb -$p $f
-          ./sim -is $i -ds $i -bs $j -a $k -wb -$p $f
         done
       done
     done
